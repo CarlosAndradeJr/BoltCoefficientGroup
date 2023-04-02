@@ -1,0 +1,165 @@
+''' 
+Bolt Group Coefficient
+Carlos Magalhaes Jr
+April 4th, 2023
+carlosmagalhaes.eng@gmail.com
+
+credits to Redem Legaspi Jr (Philippines)
+https://engineersviewpoint.blogspot.com/2011/03/analysis-of-bolts-modified-visual-basic.html
+
+'''
+
+
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+
+Eccentricity = 3
+Rv = 3
+Rh = 1
+Sv = 3
+Sh = 3
+Rotation = 0
+d_hole = 0.75
+BoltLocDv = np.zeros(Rv*Rh)
+BoltLocDh = np.zeros(Rv*Rh)
+x = np.zeros(Rv*Rh)
+y = np.zeros(Rv*Rh)
+nb = Rv*Rh
+R,Rx,Ry = np.zeros(nb),np.zeros(nb),np.zeros(nb)
+Cx = np.zeros(nb)
+Cy = np.zeros(nb)
+Ci = np.zeros(nb)
+    
+def Sgn(var):
+    if var > 0:
+        return 1
+    else:
+        if var ==0:
+            return 0
+        else:
+            return -1
+
+Rot = Rotation * 3.14159265358979 / 180
+Ec = Eccentricity * math.cos(Rot)
+
+
+
+ 
+n = 0
+for i in range(Rv):
+    for k in range(Rh):
+        y1 = (i * Sv) - (Rv - 1) * Sv / 2
+        x1 = (k * Sh) - (Rh - 1) * Sh / 2
+        x[n] = x1
+        y[n] = y1
+        
+        BoltLocDh[n] = x1 * math.cos(Rot) - y1 * math.sin(Rot) #Rotate Horizontal Coordinate
+        BoltLocDv[n] = x1 * math.sin(Rot) + y1 * math.cos(Rot) #Rotate Vertical Coordinate
+        
+        n = n + 1
+
+ 
+Rn = 74 * (1 - math.exp(-10 * 0.34))** 0.55
+Ro = 0
+
+Stp = 1
+while Stp > 0.0001:
+    Rmax = 0
+    for i in range(Rv * Rh):
+        xi = BoltLocDh[i] + Ro
+        yi = BoltLocDv[i]
+        Rmax = max(Rmax, math.sqrt(xi** 2 + yi ** 2))
+
+    
+    Mo = 0
+    Fy = 0
+    mP = 0
+    vP = 0
+    J = 0
+    
+    
+
+    
+    for i in range(Rv * Rh):
+        xi = BoltLocDh[i] + Ro
+        yi = BoltLocDv[i]
+        
+        Xic = Ro * math.cos(-Rot) - 0 * math.sin(-Rot)
+        Yic = Ro * math.sin(-Rot) - 0 * math.cos(-Rot)        
+
+        Cx[i] = x[i] - Xic
+        Cy[i] = y[i] - Yic
+
+        Ci[i] = math.sqrt((Cx[i])**2+(Cy[i])**2)
+        
+        Ri = math.sqrt(xi** 2 + yi ** 2)
+        Delta = 0.34 * Ri / Rmax
+        iRn = 74 * (1 - math.exp(-10 * Delta)) ** 0.55
+        
+        R[i] = iRn
+        
+        if Ci[i] != 0:
+            Rx[i],Ry[i] = -R[i]*Cy[i]/Ci[i], R[i]*Cx[i]/Ci[i]
+            
+        else:
+            Rx[i],Ry[i] = 0,0
+        
+        Mo = Mo + (iRn / Rn) * Ri                           #Moment
+        if Ri != 0:
+            Fy = Fy + (iRn / Rn) * abs(xi / Ri) * Sgn(xi)       #Vertical
+
+        
+        J = J + Ri **2
+
+    mP = Mo / (abs(Ec) + Ro)
+    vP = Fy
+    Stp = abs(mP - vP) 
+    FACTOR = J / (Rv * Rh * Mo)
+    Ro = Ro + (mP - vP) * FACTOR   
+
+BoltCoefficient = (mP + vP) / 2
+ 
+XicRot = -Ro
+YicRot = 0
+
+
+print(BoltCoefficient)
+Xcg, Ycg = 0,0
+fig, ax = plt.subplots()
+ax.plot()
+
+Pux = 74*math.sin(Rot)
+Puy = 74*math.cos(Rot)
+
+vector = math.sqrt((Pux)**2+(Puy)**2)*0.025
+
+X0 = -Eccentricity-Pux*0.025
+Y0 = Puy*0.025
+X1 = -Eccentricity
+Y1 = 0
+
+plt.arrow(X0,Y0,X1-X0,Y1-Y0,width=0.2,head_width=0.4)
+circle = plt.Circle((Xic,Yic),radius=0.1,fill=True)
+ax.add_patch(circle)
+plt.text(Xic,Yic,"IC")
+
+circle = plt.Circle((Xcg,Ycg),radius=0.1,fill=True)
+ax.add_patch(circle)
+plt.text(Xcg,Ycg,"CG")
+
+scale = 1
+
+for i in range(Rv*Rh):
+    circle = plt.Circle((x[i],y[i]),radius=d_hole*0.5,fill=False)
+    ax.add_patch(circle)
+    plt.text(x[i]+d_hole*0.5,y[i]+d_hole*0.5,i+1)
+    plt.text(x[i]-d_hole*2,y[i]-d_hole*2,np.round(R[i],2))
+    plt.arrow(x[i],y[i],Rx[i]/max(R)*scale,Ry[i]/max(R)*scale,width=0.05,head_width=0.2)
+
+mytext = "C value: %3.2f \n ΦRn = %3.2f kip" % (np.round(BoltCoefficient,2),np.round(BoltCoefficient*74,2))
+plt.text(X0,max(y),mytext)
+
+plt.axis("off")
+plt.axis('equal')
+plt.show()
